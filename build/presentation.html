@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Возможности ИИ для нашей работы</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Commissioner:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Unbounded:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Base ──────────────────────────────────────── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-void: #06090f;
+  --bg-slide: #0c1017;
+  --bg-card: rgba(255,255,255,0.035);
+  --bg-card-hover: rgba(255,255,255,0.06);
+  --border-subtle: rgba(255,255,255,0.07);
+  --border-accent: rgba(0,229,184,0.25);
+
+  --bg-sidebar: #090c13;
+  --sidebar-w: 220px;
+  --sidebar-collapsed: 48px;
+
+  --text-1: #e8eef4;
+  --text-2: #8a94a8;
+  --text-3: #4a5568;
+
+  --accent: #00e5b8;
+  --accent-soft: rgba(0,229,184,0.12);
+  --accent-glow: rgba(0,229,184,0.25);
+  --positive: #34d399;
+  --negative: #f87171;
+  --warning: #fbbf24;
+  --highlight: #60a5fa;
+
+  --mono: 'JetBrains Mono', monospace;
+  --display: 'Unbounded', sans-serif;
+  --body: 'Commissioner', sans-serif;
+
+  --base: clamp(13px, min(1.15vw, 2vh), 21px);
+
+  font-size: var(--base);
+  font-feature-settings: "tnum";
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg-void);
+  color: var(--text-1);
+  font-family: var(--body);
+  font-weight: 400;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Sidebar ───────────────────────────────────────────── */
+.sidebar {
+  position: fixed; left: 0; top: 0; bottom: 0;
+  width: var(--sidebar-w);
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-subtle);
+  z-index: 100;
+  display: flex; flex-direction: column;
+  transition: width 0.3s cubic-bezier(0.4,0,0.2,1);
+  overflow: hidden;
+}
+.sidebar.collapsed { width: var(--sidebar-collapsed); }
+
+.sidebar-toggle {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 48px; min-height: 48px;
+  border: none; border-bottom: 1px solid var(--border-subtle);
+  background: transparent; color: var(--text-2);
+  cursor: pointer; font-size: 1.1rem;
+  transition: color 0.2s, background 0.2s;
+}
+.sidebar-toggle:hover { background: var(--bg-card); color: var(--text-1); }
+.sidebar-toggle svg { width: 20px; height: 20px; transition: transform 0.3s; }
+.sidebar.collapsed .sidebar-toggle svg { transform: rotate(180deg); }
+
+.sidebar-nav {
+  flex: 1; overflow-y: auto; padding: 8px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle) transparent;
+}
+
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 16px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  color: var(--text-2);
+  font-weight: 400;
+}
+.nav-item:hover { background: var(--bg-card); color: var(--text-1); }
+.nav-item.active {
+  border-left-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 500;
+}
+.nav-num {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  min-width: 20px;
+  opacity: 0.5;
+}
+.nav-item.active .nav-num { opacity: 1; }
+.sidebar.collapsed .nav-label { display: none; }
+.sidebar.collapsed .nav-item { justify-content: center; padding: 9px 0; }
+.sidebar.collapsed .nav-num { min-width: auto; }
+
+/* ── Main Stage ────────────────────────────────────────── */
+.stage {
+  position: fixed;
+  top: 0; bottom: 0;
+  left: var(--sidebar-w);
+  right: 0;
+  transition: left 0.3s cubic-bezier(0.4,0,0.2,1);
+  overflow: hidden;
+  background: var(--bg-void);
+}
+.sidebar.collapsed ~ .stage { left: var(--sidebar-collapsed); }
+
+/* ── Slide Counter ─────────────────────────────────────── */
+.slide-counter {
+  position: fixed; top: 16px; right: 24px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--text-3);
+  z-index: 90;
+  letter-spacing: 0.05em;
+}
+
+/* ── Progress Bar ──────────────────────────────────────── */
+.progress-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: rgba(255,255,255,0.04);
+  z-index: 90;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.35s cubic-bezier(0.4,0,0.2,1);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+/* ── Slides ────────────────────────────────────────────── */
+.slide {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  transform: translateY(12px);
+}
+.slide.active {
+  opacity: 1; pointer-events: auto;
+  transform: translateY(0);
+}
+.slide.exit-up {
+  opacity: 0; transform: translateY(-12px);
+}
+
+.slide-frame {
+  position: relative;
+  width: min(100%, calc(100vh * 16 / 9));
+  aspect-ratio: 16 / 9;
+  background: var(--bg-slide);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  border-radius: 2px;
+}
+
+/* Dot grid texture */
+.slide-frame::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.018) 1px, transparent 0);
+  background-size: 32px 32px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.slide-content {
+  position: relative; z-index: 1;
+  flex: 1;
+  display: flex; flex-direction: column;
+  padding: 5% 6%;
+  overflow: hidden;
+}
+
+/* ── Watermark Chapter Number ──────────────────────────── */
+.slide-watermark {
+  position: absolute;
+  right: 4%; bottom: -5%;
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 14rem;
+  line-height: 1;
+  color: rgba(255,255,255,0.015);
+  pointer-events: none;
+  z-index: 0;
+  user-select: none;
+}
+
+/* ── Typography ────────────────────────────────────────── */
+.slide-title {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.85rem;
+  line-height: 1.25;
+  color: var(--text-1);
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.01em;
+}
+
+.slide-title .accent { color: var(--accent); }
+
+.slide-body { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+
+.bullet-list {
+  list-style: none;
+  display: flex; flex-direction: column; gap: 0.65rem;
+}
+.bullet-list > li {
+  display: flex; align-items: flex-start; gap: 0.7rem;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.bullet-list > li::before {
+  content: '';
+  margin-top: 0.55em;
+  min-width: 6px; height: 6px;
+  background: var(--accent);
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+.sub-list {
+  list-style: none;
+  margin-top: 0.4rem;
+  margin-left: 0.2rem;
+  display: flex; flex-direction: column; gap: 0.35rem;
+}
+.sub-list > li {
+  display: flex; align-items: flex-start; gap: 0.6rem;
+  font-size: 0.88rem;
+  color: var(--text-2);
+  line-height: 1.45;
+}
+.sub-list > li::before {
+  content: '';
+  margin-top: 0.5em;
+  min-width: 4px; height: 4px;
+  border: 1px solid var(--accent);
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+.conclusion {
+  margin-top: 1rem;
+  padding: 0.7rem 1rem;
+  background: var(--accent-soft);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+  font-weight: 500;
+  font-size: 0.95rem;
+  color: var(--accent);
+}
+
+.mono { font-family: var(--mono); font-size: 0.88em; }
+.code-inline {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  background: rgba(0,229,184,0.08);
+  padding: 0.15em 0.4em;
+  border-radius: 3px;
+  color: var(--accent);
+}
+
+/* ── Stagger Animation ─────────────────────────────────── */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.slide.active [data-a] {
+  animation: fadeSlideUp 0.4s ease both;
+  animation-delay: calc(var(--d, 0) * 50ms + 120ms);
+}
+
+/* ── Card ──────────────────────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 1rem 1.2rem;
+}
+.card-accent {
+  border-color: var(--border-accent);
+  background: var(--accent-soft);
+}
+
+/* ── Two-Column Layout ─────────────────────────────────── */
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+
+/* ── Pros / Cons Markers ───────────────────────────────── */
+.marker-pos, .marker-neg {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 22px;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 0.15em;
+}
+.marker-pos { background: rgba(52,211,153,0.15); color: var(--positive); }
+.marker-neg { background: rgba(248,113,113,0.15); color: var(--negative); }
+
+/* ── Pricing Cards ─────────────────────────────────────── */
+.pricing-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.6rem;
+}
+.pricing-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 0.8rem;
+  display: flex; flex-direction: column; gap: 0.4rem;
+  transition: border-color 0.2s;
+}
+.pricing-card.featured {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.pricing-name {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--text-1);
+}
+.pricing-price {
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--accent);
+}
+.pricing-desc {
+  font-size: 0.72rem;
+  color: var(--text-2);
+  line-height: 1.4;
+}
+
+/* ── Title Slide ───────────────────────────────────────── */
+.title-slide .slide-frame {
+  background: linear-gradient(135deg, #0c1017 0%, #0f1923 40%, #0a1a1f 100%);
+}
+.title-slide .slide-content {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.title-main {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 3rem;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.2rem;
+  background: linear-gradient(135deg, var(--text-1) 0%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.title-sub {
+  font-size: 1rem;
+  color: var(--text-2);
+  font-weight: 300;
+  font-style: italic;
+}
+.title-decoration {
+  position: absolute;
+  width: 200px; height: 200px;
+  border: 1px solid var(--border-accent);
+  border-radius: 50%;
+  opacity: 0.15;
+  pointer-events: none;
+}
+.title-decoration:nth-child(1) { top: 10%; left: 8%; width: 160px; height: 160px; }
+.title-decoration:nth-child(2) { bottom: 12%; right: 10%; width: 240px; height: 240px; }
+.title-decoration:nth-child(3) { top: 30%; right: 20%; width: 80px; height: 80px; border-color: var(--accent); opacity: 0.08; }
+
+/* ── Demo Slide ────────────────────────────────────────── */
+.demo-slide .slide-content {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.demo-title {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 2.5rem;
+  color: var(--text-1);
+  position: relative;
+}
+.demo-title::after {
+  content: '';
+  display: block;
+  width: 60px; height: 3px;
+  background: var(--accent);
+  margin: 1.2rem auto 0;
+  border-radius: 2px;
+  animation: pulse-bar 2s ease-in-out infinite;
+}
+@keyframes pulse-bar {
+  0%, 100% { opacity: 0.4; width: 60px; }
+  50% { opacity: 1; width: 100px; }
+}
+
+/* ── Warning Banner ────────────────────────────────────── */
+.warning-banner {
+  display: flex; align-items: flex-start; gap: 0.8rem;
+  padding: 1rem 1.2rem;
+  background: rgba(251,191,36,0.06);
+  border: 1px solid rgba(251,191,36,0.2);
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+.warning-icon {
+  font-size: 1.2rem;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+.warning-text {
+  font-size: 0.95rem;
+  color: var(--warning);
+  line-height: 1.5;
+}
+
+/* ── Shield Icon (Security) ────────────────────────────── */
+.shield-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 48px; height: 48px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: var(--accent);
+}
+
+/* ── Numbered Items ────────────────────────────────────── */
+.numbered-list {
+  list-style: none;
+  display: flex; flex-direction: column; gap: 0.8rem;
+}
+.numbered-list > li {
+  display: flex; align-items: flex-start; gap: 0.8rem;
+  font-size: 0.95rem;
+}
+.num-badge {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 28px; height: 28px;
+  background: var(--accent-soft);
+  border: 1px solid var(--border-accent);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ── Source Types Grid ─────────────────────────────────── */
+.source-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.source-chip {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.78rem;
+  text-align: center;
+  color: var(--text-2);
+  line-height: 1.35;
+}
+
+/* ── Stat Number ───────────────────────────────────────── */
+.stat-num {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 2.8rem;
+  color: var(--accent);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--text-2);
+  margin-top: 0.2rem;
+}
+
+/* ── Compact text for dense slides ─────────────────────── */
+.compact .bullet-list > li { font-size: 0.88rem; }
+.compact .sub-list > li { font-size: 0.78rem; }
+.compact .bullet-list { gap: 0.45rem; }
+.compact .slide-title { font-size: 1.6rem; margin-bottom: 1rem; }
+</style>
+</head>
+<body>
+
+<!-- ════ Sidebar ════ -->
+<nav class="sidebar" id="sidebar">
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle menu">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <path d="M15 18l-6-6 6-6"/>
+    </svg>
+  </button>
+  <div class="sidebar-nav" id="sidebarNav"></div>
+</nav>
+
+<!-- ════ Stage ════ -->
+<div class="stage" id="stage">
+
+  <!-- Slide Counter -->
+  <div class="slide-counter" id="slideCounter">1/17</div>
+
+  <!-- ── 0: Title ── -->
+  <div class="slide title-slide" data-chapter="0" id="slide-0">
+    <div class="slide-frame">
+      <div class="title-decoration"></div>
+      <div class="title-decoration"></div>
+      <div class="title-decoration"></div>
+      <div class="slide-content">
+        <h1 class="title-main" data-a style="--d:0">Возможности ИИ<br>для нашей работы</h1>
+        <p class="title-sub" data-a style="--d:2">Эта презентация сгенерирована.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 1: Повестка ── -->
+  <div class="slide" data-chapter="1" id="slide-1">
+    <div class="slide-frame">
+      <span class="slide-watermark">1</span>
+      <div class="slide-content">
+        <h2 class="slide-title" data-a style="--d:0">Повестка</h2>
+        <div class="slide-body">
+          <ul class="bullet-list">
+            <li data-a style="--d:1"><span>Внедрение ИИ в рабочий процесс: плюсы и минусы</span></li>
+            <li data-a style="--d:2"><span>В начале 2026 г. обновлён проект e2e-тестов — открыт для экспериментов</span></li>
+            <li data-a style="--d:3"><span>Сейчас в фокусе — документация (homepage)</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 2: Дока — история вопроса ── -->
+  <div class="slide" data-chapter="2" id="slide-2">
+    <div class="slide-frame">
+      <span class="slide-watermark">2</span>
+      <div class="slide-content">
+        <h2 class="slide-title" data-a style="--d:0">Дока — <span class="accent">история вопроса</span></h2>
+        <div class="slide-body">
+          <p data-a style="--d:1; font-size: 1rem; color: var(--text-2); margin-bottom: 1.2rem;">Год назад предлагалось реструктурировать проектную документацию (homepage):</p>
+          <ol class="numbered-list">
+            <li data-a style="--d:2">
+              <span class="num-badge">1</span>
+              <span>Пользовательская документация: RST <span style="color:var(--accent)">→</span> Markdown</span>
+            </li>
+            <li data-a style="--d:3">
+              <span class="num-badge">2</span>
+              <span>Методы API: перевод в JSON по спецификации OpenAPI</span>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 3: Зачем это нужно? ── -->
+  <div class="slide compact" data-chapter="3" id="slide-3">
+    <div class="slide-frame">
+      <span class="slide-watermark">3</span>
+      <div class="slide-content">
+        <h2 class="slide-title" data-a style="--d:0">Зачем это нужно?</h2>
+        <div class="slide-body">
+          <ul class="bullet-list">
+            <li data-a style="--d:1"><span>Единый проект со сквозным поиском вместо разрозненных источников</span></li>
+            <li data-a style="--d:2"><span>Markdown: прост в освоении, низкий порог входа, широкая поддержка инструментов</span></li>
+            <li data-a style="--d:3">
+              <span>
+                OpenAPI — машиночитаемый стандарт описания API. Экосистема готовых инструментов:
+                <ul class="sub-list" style="margin-top: 0.5rem">
+                  <li data-a style="--d:4"><span>Интерактивная документация (Redoc, Swagger UI) — живой интерфейс с поиском, фильтрацией, примерами запросов</span></li>
+                  <li data-a style="--d:5"><span>Автоматическая проверка: реальное поведение сервера сверяется с документацией — ошибки ловятся до пользователя</span></li>
+                  <li data-a style="--d:6"><span>Генерация клиентского кода: готовые функции для фронтенда создаются автоматически</span></li>
+                  <li data-a style="--d:7"><span>Единый формат, понятный всем — от фронтенда до QA</span></li>
+                </ul>
+              </span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 4: Почему отказались год назад? ── -->
+  <div class="slide" data-chapter="4" id="slide-4">
+    <div class="slide-frame">
+      <span class="slide-watermark">4</span>
+      <div class="slide-content">
+        <h2 class="slide-title" data-a style="--d:0">Почему отказались <span class="accent">год назад?</span></h2>
+        <div class="slide-body">
+          <div class="cols">
+            <div class="card" data-a style="--d:1">
+              <div style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.6rem; font-family: var(--mono);">Организация</div>
+              <p style="font-size: 1rem;">Слишком большой объём ручной работы</p>
+            </div>
+            <div class="card" data-a style="--d:2">
+              <div style="font-size: 0.75rem; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.6rem; font-family: var(--mono);">Техника</div>
+              <p style="font-size: 1rem;">Радикальное изменение workflow бэкенд-разработчиков — они не согласились</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 5: Что изменилось в 2026-ом? ── -->
+  <div class="slide demo-slide" data-chapter="5" id="slide-5">
+    <div class="slide-frame">
+      <div class="slide-content">
+        <div class="demo-title" data-a style="--d:0">Что изменилось<br>в 2026-ом?</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 6: Чем это обеспечено? ── -->
+  <div class="slide" data-chapter="6" id="slide-6">
+    <div class="slide-frame">
+      <span class="slide-watermark">6</span>
+      <div class="slide-content">
+        <h2 class="slide-title" data-a style="--d:0">Чем это обеспечено?</h2>
+        <div class="slide-body">
+          <div class="card" data-a style="--d:1; margin-bottom: 1rem; display: flex; align-items: center; gap: 1rem;">
+            <div>
+              <span class="mono" style="color: var(--accent); font-size: 1rem;">open_api_generator.py</span>
+              <span style="color: var(--text-2); font-size: 0.9rem;"> — </span>
+              <span class="stat-num" style="font-size: 1.8rem;">2 394</span>
+              <span style="color: var(--text-2); font-size: 0.9rem;"> строки Python-кода</span>
+            </div>
+          </div>
+          <ul class="bullet-list" style="margin-bottom: 0.8rem;">
+            <li data-a style="--d:2"><span>Генерирует OpenAPI-спецификацию из существующих исходников, не требуя изменений от бэкенд-разработчиков</span></li>
+          </ul>
+          <p data-a style="--d:3; font-size: 0.85rem; color: var(--text-2); margin-bottom: 0.5rem;">Парсит 5 типов источников:</p>
+          <div class="source-grid" data-a style="--d:4">
+            <div class="source-chip">RST-документация</div>
+            <div class="source-chip">Описания функций</div>
+            <div class="source-chip">Файлы маршрутов</div>
+            <div class="source-chip">HTTP-запросы</div>
+            <div class="source-chip">Конфигурация</div>
+          </div>
+          <div class="conclusion" data-a style="--d:5; margin-top: 1rem;">На выходе — готовый файл для Redoc / Swagger UI</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 7: Реализация парсера — вводные ── -->
+  <div class="slide compact" data-chapter="7" id="slide-7">
+    <div class="slide-frame">
+      <span class="slide-watermark">7</span>
+      <div class="slide-content">
+        <h2 class="slide-title" data-a style="--d:0">Реализация парсера — <span class="accent">вводные</span></h2>
+        <div class="slide-body">
+          <div class="cols">
+            <div>
+              <div class="card" data-a style="--d:1; margin-bottom: 0.8rem; text-align: center;">
+                <div class="stat-num" style="font-size: 2.2rem;">272</div>
+                <div class="stat-label">эндпоинта API в двух проектах</div>
+                <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 0.5rem;">
+                  <span style="font-size: 0.75rem; color: var(--text-2);"><span style="color: var(--accent); font-weight: 600;">147</span> ostecPlatform</span>
+                  <span style="font-size: 0.75rem; color: var(--text-2);"><span style="color: var(--accent); font-weight: 600;">125</span> smartLine</span>
+                </div>
+              </div>
+              <div data-a style="--d:2">
+                <p style="font-size: 0.8rem; color: var(--text-2); margin-bottom: 0.4rem; font-weight: 500;">Отсутствие единого стиля:</p>
+                <ul class="sub-list">
+                  <li><span>Параметры: списки / таблицы / JSON</span></li>
+                  <li><span>Sphinx-формат vs свободный текст</span></li>
+                  <li><span>Разный стиль кавычек</span></li>
+                </ul>
+              </div>
+            </div>
+            <div data-a style="--d:3">
+              <p style="font-size: 0.8rem; color: var(--text-2); margin-bottom: 0.4rem; font-weight: 500;">Структурные различия между проектами:</p>
+              <ul class="sub-list">
+                <li><span><span class="mono" style="font-size: 0.78rem;">config/</span> vs <span class="mono" style="font-size: 0.78rem;">conf/</span>; 1 файл vs 13 отдельных</span></li>
+                <li><span>Формат маршрутов: строка vs массив с HTTP-методами</span></li>
+                <li><span>Таблицы моделей: есть в одном проекте, нет в другом</span></li>
+              </ul>
+              <div class="conclusion" data-a style="--d:4; margin-top: 0.8rem; font-size: 0.85rem;">Утилита должна распознавать и корректно обрабатывать все варианты</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 8: А если без ИИ? ── -->
+  <div class="slide" data-chapter="8" id="slide-8">
+    <div class="slide-frame">
+      <span class="slide-watermark">8</span>
+      <div class="slide-content">
+        <h2 class="slide-title" data-a style="--d:0">А если <span class="accent">без ИИ?</span></h2>
+        <div class="slide-body">
+          <ul class="bullet-list" style="gap: 0.8rem;">
+            <li data-a style="--d:1">
+              <span class="marker-neg" style="margin-top: 0.1em;">✕</span>
+              <span>Нет готовых решений под наши вводные — придётся писать всё с нуля</span>
+            </li>
+            <li data-a style="--d:2">
+              <span class="marker-neg" style="margin-top: 0.1em;">✕</span>
+              <span>Большой объём кропотливой работы с низкоуровневым кодом парсера</span>
+            </li>
+            <li data-a style="--d:3">
+              <span class="marker-neg" style="margin-top: 0.1em;">✕</span>
+              <span>Требуется учесть все нюансы разных стилей оформления</span>
+            </li>
+            <li data-a style="--d:4">
+              <span class="marker-neg" style="margin-top: 0.1em;">✕</span>
+              <span>Самописный парсер тяжело поддерживать</span>
+            </li>
+          </ul>
+          <div class="conclusion" data-a style="--d:5">Без ИИ такая задача — за гранью наших возможностей</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 9: Применение на наших проектах ── -->
+  <div class="slide" data-chapter="9" id="slide-9">
+    <div class="slide-frame">
+      <span class="slide-watermark">9</span>
+      <div class="slide-content">
+        <h2 class="slide-title" data-a style="--d:0">Применение на <span class="accent">наших проектах</span></h2>
+        <div class="slide-body">
+          <div class="cols">
+            <div class="card" data-a style="--d:1">
+              <div style="font-size: 0.75rem; color: var(--positive); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.7rem; font-family: var(--mono);">Стандартные</div>
+              <p style="font-size: 0.85rem; color: var(--text-2); margin-bottom: 0.6rem;">Широко используются готовые решения:</p>
+              <ul class="sub-list">
+                <li><span>Web: backend / frontend / тесты / документация</span></li>
+                <li><span>Мобильные приложения</span></li>
+                <li><span>Bitrix</span></li>
+                <li><span>Apache Superset</span></li>
+              </ul>
+            </div>
+            <div class="card card-accent" data-a style="--d:2">
+              <div style="font-size: 0.75rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.7rem; font-family: var(--mono);">Нестандартные</div>
+              <p style="font-size: 0.85rem; color: var(--text-2); margin-bottom: 0.6rem;">Нет готовых решений, создание ноу-хау:</p>
+              <ul class="sub-list">
+                <li><span style="color: var(--accent); font-weight: 500;">СТЗ (алгоритмы)</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 10: СТЗ — вводные ── -->
+  <div class="slide" data-chapter="10" id="slide-10">
+    <div class="slide-frame">
+      <span class="slide-watermark">10</span>
+      <div class="slide-content">
+        <h2 class="slide-title" data-a style="--d:0">СТЗ — <span class="accent">вводные</span></h2>
+        <div class="slide-body">
+          <p data-a style="--d:1; font-size: 0.95rem; color: var(--text-2); margin-bottom: 1rem;">Для СТЗ (в части алгоритмов) справедливо то же, что для парсера:</p>
+          <ul class="bullet-list" style="gap: 0.8rem;">
+            <li data-a style="--d:2">
+              <span class="marker-neg" style="margin-top: 0.1em;">✕</span>
+              <span>Нет готовых рецептов под наши вводные</span>
+            </li>
+            <li data-a style="--d:3">
+              <span class="marker-neg" style="margin-top: 0.1em;">✕</span>
+              <span>Большой объём кропотливой работы</span>
+            </li>
+            <li data-a style="--d:4">
+              <span class="marker-neg" style="margin-top: 0.1em;">✕</span>
+              <span>Множество нестандартных случаев</span>
+            </li>
+            <li data-a style="--d:5">
+              <span class="marker-neg" style="margin-top: 0.1em;">✕</span>
+              <span>Часть потенциальных проблем возможно ещё не осознана</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 11: СТЗ с ИИ ── -->
+  <div class="slide compact" data-chapter="11" id="slide-11">
+    <div class="slide-frame">
+      <span class="slide-watermark">11</span>
+      <div class="slide-content">
+        <h2 class="slide-title" data-a style="--d:0">СТЗ <span class="accent">с ИИ</span></h2>
+        <div class="slide-body">
+          <ul class="bullet-list" style="margin-bottom: 0.8rem;">
+            <li data-a style="--d:1"><span>Трудоёмкий перевод гипотез в код делегируется ИИ</span></li>
+            <li data-a style="--d:2"><span>Человек высвобождается для интеллектуальной и творческой деятельности</span></li>
+          </ul>
+          <div data-a style="--d:3; display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.8rem;">
+            <div style="display: flex; align-items: flex-start; gap: 0.6rem;">
+              <span class="marker-pos">+</span>
+              <span style="font-size: 0.88rem;">Высокая скорость проверки разнообразных гипотез</span>
+            </div>
+            <div data-a style="--d:4; display: flex; align-items: flex-start; gap: 0.6rem;">
+              <span class="marker-pos">+</span>
+              <span style="font-size: 0.88rem;">Раннее обнаружение ошибок в логике, которые человек может пропустить</span>
+            </div>
+            <div data-a style="--d:5; display: flex; align-items: flex-start; gap: 0.6rem;">
+              <span class="marker-neg">−</span>
+              <span style="font-size: 0.88rem;">Сгенерированные алгоритмы сложны для человеческого восприятия</span>
+            </div>
+            <div data-a style="--d:6; display: flex; align-items: flex-start; gap: 0.6rem;">
+              <span class="marker-pos">+</span>
+              <span style="font-size: 0.88rem;">Логика алгоритмов дублируется в виде текста, понятного человеку</span>
+            </div>
+          </div>
+          <div class="conclusion" data-a style="--d:7">Имеет смысл пожертвовать читаемостью кода в пользу скорости обнаружения оптимальных решений</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 12: Стандартные проекты — мелкие ── -->
+  <div class="slide compact" data-chapter="12" id="slide-12">
+    <div class="slide-frame">
+      <span class="slide-watermark">12</span>
+      <div class="slide-content">
+        <h2 class="slide-title" data-a style="--d:0">Стандартные проекты — <span class="accent">мелкие</span></h2>
+        <div class="slide-body">
+          <ul class="bullet-list" style="margin-bottom: 0.8rem;">
+            <li data-a style="--d:1"><span>Проекты без сложной бизнес-логики (умные часы, панель, ...)</span></li>
+            <li data-a style="--d:2"><span>Возможен переход к <strong style="color: var(--accent);">Spec-Driven Development</strong></span></li>
+          </ul>
+          <div class="card" data-a style="--d:3; margin-bottom: 0.8rem;">
+            <p style="font-size: 0.85rem; color: var(--text-2); line-height: 1.55;">
+              <strong style="color: var(--text-1);">Spec-Driven Development</strong> — подход, при котором сначала пишется формальная спецификация, а затем ИИ-агент генерирует код по ней. Инверсия: не «код, потом документация», а «спецификация — и код как артефакт». Спецификация даёт ИИ чёткий ориентир.
+            </p>
+          </div>
+          <div data-a style="--d:4">
+            <p style="font-size: 0.8rem; color: var(--text-2); margin-bottom: 0.4rem; font-weight: 500;">Преимущества:</p>
+            <div style="display: flex; gap: 0.6rem;">
+              <div class="card" style="flex: 1; padding: 0.6rem 0.8rem;">
+                <div style="color: var(--positive); font-size: 0.8rem; margin-bottom: 0.2rem;">+</div>
+                <div style="font-size: 0.78rem; color: var(--text-2);">Человек освобождён от кодирования</div>
+              </div>
+              <div class="card" style="flex: 1; padding: 0.6rem 0.8rem;">
+                <div style="color: var(--positive); font-size: 0.8rem; margin-bottom: 0.2rem;">+</div>
+                <div style="font-size: 0.78rem; color: var(--text-2);">Независимость от текущей реализации</div>
+              </div>
+              <div class="card" style="flex: 1; padding: 0.6rem 0.8rem;">
+                <div style="color: var(--positive); font-size: 0.8rem; margin-bottom: 0.2rem;">+</div>
+                <div style="font-size: 0.78rem; color: var(--text-2);">Простота обновлений на мажорные версии</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 13: Стандартные проекты — крупные ── -->
+  <div class="slide" data-chapter="13" id="slide-13">
+    <div class="slide-frame">
+      <span class="slide-watermark">13</span>
+      <div class="slide-content">
+        <h2 class="slide-title" data-a style="--d:0">Стандартные проекты — <span class="accent">крупные</span></h2>
+        <div class="slide-body">
+          <div class="warning-banner" data-a style="--d:1">
+            <span class="warning-icon">⚠</span>
+            <span class="warning-text">На крупных проектах избыточное использование ИИ несёт риск потери контроля над разработкой. Использовать с осторожностью!</span>
+          </div>
+          <div class="card card-accent" data-a style="--d:2">
+            <div style="font-size: 0.75rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.6rem; font-family: var(--mono);">Исключение</div>
+            <p style="font-size: 0.95rem; line-height: 1.55;">
+              <strong>e2e-тесты, Playwright.</strong> AI-driven тестирование — уже стандартная история. Позволяет человеческим языком описывать атомарные операции с системными сущностями и собирать из них пользовательские сценарии как из конструктора.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 14: Безопасность ── -->
+  <div class="slide" data-chapter="14" id="slide-14">
+    <div class="slide-frame">
+      <span class="slide-watermark">14</span>
+      <div class="slide-content">
+        <h2 class="slide-title" data-a style="--d:0">Безопасность</h2>
+        <div class="slide-body">
+          <div class="shield-icon" data-a style="--d:1">🛡</div>
+          <ul class="bullet-list" style="margin-bottom: 1.2rem;">
+            <li data-a style="--d:2"><span>Стандартное требование — код не должен содержать чувствительной или секретной информации. В противном случае украсть её может и рядовой сотрудник.</span></li>
+          </ul>
+          <div class="card" data-a style="--d:3">
+            <p style="font-size: 0.9rem; margin-bottom: 0.6rem;">Настройка прав доступа к файлам для ИИ-агента:</p>
+            <div style="display: flex; gap: 0.8rem;">
+              <span class="code-inline">~/.claude/settings.json</span>
+              <span class="code-inline">.claudeignore</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 15: Итог ── -->
+  <div class="slide compact" data-chapter="15" id="slide-15">
+    <div class="slide-frame">
+      <span class="slide-watermark">15</span>
+      <div class="slide-content">
+        <h2 class="slide-title" data-a style="--d:0">Итог</h2>
+        <div class="slide-body">
+          <ul class="bullet-list" style="margin-bottom: 1rem;">
+            <li data-a style="--d:1"><span><strong style="color: var(--accent);">Максимальное преимущество</strong> от ИИ — на больших, сложных, нестандартных проектах</span></li>
+            <li data-a style="--d:2"><span>В рамках обычных задач — облегчает рутину</span></li>
+          </ul>
+          <p data-a style="--d:3; font-size: 0.8rem; color: var(--text-2); margin-bottom: 0.5rem; font-weight: 500;">Тарифы Anthropic:</p>
+          <div class="pricing-row" data-a style="--d:4">
+            <div class="pricing-card">
+              <div class="pricing-name">Pro</div>
+              <div class="pricing-price">$20<span style="font-size: 0.65rem; color: var(--text-2);">/мес</span></div>
+              <div class="pricing-desc">Доступ к Claude Code, базовые лимиты</div>
+            </div>
+            <div class="pricing-card featured">
+              <div class="pricing-name">Max 5x</div>
+              <div class="pricing-price">$100<span style="font-size: 0.65rem; color: var(--text-2);">/мес</span></div>
+              <div class="pricing-desc">5-кратные лимиты, фоновые задачи</div>
+            </div>
+            <div class="pricing-card">
+              <div class="pricing-name">Max 20x</div>
+              <div class="pricing-price">$200<span style="font-size: 0.65rem; color: var(--text-2);">/мес</span></div>
+              <div class="pricing-desc">20-кратные лимиты, макс. приоритет</div>
+            </div>
+            <div class="pricing-card">
+              <div class="pricing-name">Team</div>
+              <div class="pricing-price">$150<span style="font-size: 0.65rem; color: var(--text-2);">/мес</span></div>
+              <div class="pricing-desc">За место с Claude Code</div>
+            </div>
+            <div class="pricing-card">
+              <div class="pricing-name">Enterprise</div>
+              <div class="pricing-price" style="font-size: 0.85rem; color: var(--text-2);">Индивид.</div>
+              <div class="pricing-desc">Расширенный контроль безопасности</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 16: Дополнение — RAG ── -->
+  <div class="slide compact" data-chapter="16" id="slide-16">
+    <div class="slide-frame">
+      <span class="slide-watermark">*</span>
+      <div class="slide-content">
+        <h2 class="slide-title" data-a style="--d:0">Дополнение — <span class="accent">RAG</span></h2>
+        <div class="slide-body">
+          <div class="card" data-a style="--d:1; margin-bottom: 0.8rem;">
+            <p style="font-size: 0.9rem;"><strong style="color: var(--accent);">RAG</strong> (Retrieval-Augmented Generation) — единое окно доступа ко всем знаниям компании через ИИ</p>
+          </div>
+          <ul class="bullet-list" style="margin-bottom: 0.6rem;">
+            <li data-a style="--d:2"><span>Все данные хранятся во внутреннем контуре, ничего не отправляется третьим лицам</span></li>
+            <li data-a style="--d:3"><span>Доступ разграничивается — сотрудник видит только документы, к которым у него есть права</span></li>
+          </ul>
+          <div data-a style="--d:4; display: flex; gap: 0.6rem; margin-bottom: 0.6rem;">
+            <div class="card" style="flex: 1; padding: 0.6rem 0.8rem;">
+              <div style="font-size: 0.72rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.3rem; font-family: var(--mono);">Синтез</div>
+              <div style="font-size: 0.8rem; color: var(--text-2);">Собирает ответ из нескольких документов в один связный текст</div>
+            </div>
+            <div class="card" style="flex: 1; padding: 0.6rem 0.8rem;">
+              <div style="font-size: 0.72rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.3rem; font-family: var(--mono);">Диалог</div>
+              <div style="font-size: 0.8rem; color: var(--text-2);">Можно уточнять, переспрашивать, углублять вопрос</div>
+            </div>
+          </div>
+          <div class="conclusion" data-a style="--d:5; font-size: 0.85rem;">Снижение bus factor: знания из документов доступны всем, а не только тем, кто «знает, где искать»</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /stage -->
+
+<!-- ════ Progress Bar ════ -->
+<div class="progress-bar">
+  <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+</div>
+
+<script>
+/* ── State ──────────────────────────────────────────────── */
+const TOTAL = 17;
+let current = 0;
+let sidebarOpen = true;
+
+/* ── Chapter metadata ──────────────────────────────────── */
+const chapters = [
+  { num: '0', label: 'Начало' },
+  { num: '1', label: 'Повестка' },
+  { num: '2', label: 'Дока' },
+  { num: '3', label: 'Зачем?' },
+  { num: '4', label: 'Почему нет?' },
+  { num: '5', label: '2026' },
+  { num: '6', label: 'Решение' },
+  { num: '7', label: 'Парсер' },
+  { num: '8', label: 'Без ИИ' },
+  { num: '9', label: 'Проекты' },
+  { num: '10', label: 'СТЗ' },
+  { num: '11', label: 'СТЗ + ИИ' },
+  { num: '12', label: 'Мелкие' },
+  { num: '13', label: 'Крупные' },
+  { num: '14', label: 'Безопасность' },
+  { num: '15', label: 'Итог' },
+  { num: '16', label: 'RAG' },
+];
+
+/* ── DOM refs ──────────────────────────────────────────── */
+const slides = document.querySelectorAll('.slide');
+const counter = document.getElementById('slideCounter');
+const progress = document.getElementById('progressFill');
+const sidebar = document.getElementById('sidebar');
+const sidebarNav = document.getElementById('sidebarNav');
+const sidebarToggle = document.getElementById('sidebarToggle');
+
+/* ── Build sidebar ─────────────────────────────────────── */
+chapters.forEach((ch, i) => {
+  const el = document.createElement('div');
+  el.className = 'nav-item';
+  el.dataset.index = i;
+  el.innerHTML = `<span class="nav-num">${ch.num.padStart(2, '0')}</span><span class="nav-label">${ch.label}</span>`;
+  el.addEventListener('click', () => goTo(i));
+  sidebarNav.appendChild(el);
+});
+
+/* ── Navigation ────────────────────────────────────────── */
+function goTo(index, pushHash = true) {
+  if (index < 0 || index >= TOTAL || index === current) return;
+  const prev = current;
+  current = index;
+
+  slides.forEach((s, i) => {
+    s.classList.remove('active', 'exit-up');
+    if (i === prev) s.classList.add('exit-up');
+  });
+  slides[current].classList.add('active');
+
+  /* Re-trigger animations */
+  slides[current].querySelectorAll('[data-a]').forEach(el => {
+    el.style.animation = 'none';
+    el.offsetHeight; /* reflow */
+    el.style.animation = '';
+  });
+
+  updateUI(pushHash);
+}
+
+function next() { goTo(current + 1); }
+function prev() { goTo(current - 1); }
+
+function updateUI(pushHash = true) {
+  counter.textContent = `${current + 1}/${TOTAL}`;
+  progress.style.width = `${((current) / (TOTAL - 1)) * 100}%`;
+
+  document.querySelectorAll('.nav-item').forEach((el, i) => {
+    el.classList.toggle('active', i === current);
+  });
+
+  /* Scroll sidebar nav to show active item */
+  const activeNav = sidebarNav.querySelector('.nav-item.active');
+  if (activeNav) activeNav.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+  if (pushHash) {
+    history.replaceState(null, '', `#slide-${current}`);
+  }
+}
+
+/* ── Keyboard ──────────────────────────────────────────── */
+document.addEventListener('keydown', (e) => {
+  switch (e.key) {
+    case 'ArrowRight':
+    case 'ArrowDown':
+    case ' ':
+      e.preventDefault(); next(); break;
+    case 'ArrowLeft':
+    case 'ArrowUp':
+      e.preventDefault(); prev(); break;
+    case 'Home':
+      e.preventDefault(); goTo(0); break;
+    case 'End':
+      e.preventDefault(); goTo(TOTAL - 1); break;
+  }
+});
+
+/* ── Sidebar toggle ────────────────────────────────────── */
+sidebarToggle.addEventListener('click', () => {
+  sidebarOpen = !sidebarOpen;
+  sidebar.classList.toggle('collapsed', !sidebarOpen);
+});
+
+/* ── Hash sync ─────────────────────────────────────────── */
+function readHash() {
+  const match = location.hash.match(/^#slide-(\d+)$/);
+  if (match) {
+    const idx = parseInt(match[1], 10);
+    if (idx >= 0 && idx < TOTAL) return idx;
+  }
+  return 0;
+}
+
+window.addEventListener('hashchange', () => {
+  const idx = readHash();
+  if (idx !== current) goTo(idx, false);
+});
+
+/* ── Init ──────────────────────────────────────────────── */
+current = readHash();
+slides[current].classList.add('active');
+updateUI(true);
+</script>
+</body>
+</html>
